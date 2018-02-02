@@ -1,3 +1,5 @@
+--Get Job Info
+
 SELECT	 [JobName] = [jobs].[name]
 		,[Category] = [categories].[name]
 		,[Owner] = SUSER_SNAME([jobs].[owner_sid])
