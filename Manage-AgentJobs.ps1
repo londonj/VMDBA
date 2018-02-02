@@ -30,10 +30,7 @@ Manage-AgentJobs.ps1
 .PARAMETER DropJob
     Delete specifed job
 
-    #This is a test
-    
-
-    
+        
 .EXAMPLE
     .\Manage-AgentJobs.ps1 -Instance memorialsql -GetScheduleInfo -JobName 'CommandLog Cleanup' -ShowDetail 
     Shows the current schedule for the job 'CommandLog Cleanup' on the instance 'memorialsql'.
