@@ -7,33 +7,50 @@ Manage-AgentJobs.ps1
 .DESCRIPTION
     This script will help the DBA manage the jobs and schedules that are part of the VM DBA Toolkit.
     With this script, you can 
-           1) Add, Modify & Delete Jobs, Job schedules & Procedures, individually or en masse using a configuration file.
+           1) View, Add, Modify & Delete Jobs, 
+           2) View, Add, Modify & Delete Job Schedules 
+           3) View, Add, Modify & Delete Procedures 
            
+    These tasks can be done individually or en masse using a configuration file.
+
+
+#-----------------------------------------------------------------------------------------------------------------------------#       
 .PARAMETER Instance
     The instance that you want to restore. You can pass in a single instance, or a comma-delimited list of instances.
+    Default: None
 
 .PARAMETER JobName
     When working with a single job, the name of the job.
+    Default: None
 
 .PARAMETER DropIfExists
     Drop the agent job or schedule if it already exists. If this is not specified, the job will NOT be re-created.
+    Default: False
     
 .PARAMETER OutputDriveLetter
     The letter of the drive (C,D,R, etc.) under which the output directory and files will be created.
+    Default: "R"
     
 .PARAMETER ScheduleConfigFile
     The name of the configuration file which contains all schedules and their attributes.
+    Default: None
 
 .PARAMETER JobConfigFile
     The name of the configuration file which contains all jobs and their attributes.
+    Default: None
 
 .PARAMETER DropJob
     Delete specifed job
-
+    Default: None
         
+#-----------------------------------------------------------------------------------------------------------------------------#
 .EXAMPLE
-    .\Manage-AgentJobs.ps1 -Instance memorialsql -GetScheduleInfo -JobName 'CommandLog Cleanup' -ShowDetail 
+
     Shows the current schedule for the job 'CommandLog Cleanup' on the instance 'memorialsql'.
+
+    .\Manage-AgentJobs.ps1 -Instance memorialsql -GetScheduleInfo -JobName 'CommandLog Cleanup' -ShowDetail 
+    
+
 
 .EXAMPLE
 
@@ -141,24 +158,28 @@ param(
     [Parameter (ParameterSetName = 'psGetJobConfig', Mandatory = $false)]
     [Parameter( ParameterSetName = 'psCreateJob', Mandatory = $true )]
     [Parameter( ParameterSetName = 'psRemoveJob', Mandatory = $true )]
-    [ValidateSet("All", "DatabaseBackup - SYSTEM_DATABASES - FULL", "DatabaseBackup - USER_DATABASES - DIFF", "DatabaseBackup - USER_DATABASES - FULL", "DatabaseBackup - USER_DATABASES - LOG", "DatabaseIntegrityCheck - SYSTEM_DATABASES", "DatabaseIntegrityCheck - USER_DATABASES", "IndexOptimize - USER_DATABASES", "Output File Cleanup", "CommandLog Cleanup", "sp_delete_backuphistory", "sp_purge_jobhistory", "VMDBA: Alert Database Files Near MAXSIZE", "VMDBA: Cycle Error Logs", "VMDBA: Database Data and Log File Space Usage", "VMDBA: Database Table Size Usage", "VMDBA: spWhoIsActive Logging", "VMDBA: UpdateStats")]
     [String] $JobName,
 
 
     [Parameter (ParameterSetName = 'psGetJobInfo', Mandatory = $false)] 
+    [Parameter (ParameterSetName = 'psGetJobConfig', Mandatory = $false)] 
     [Parameter (ParameterSetName = 'psCreateJob', Mandatory = $false)] 
     [Parameter (ParameterSetName = 'psRemoveJob', Mandatory = $false)] 
     [String] $JobConfigVersion,
 
 
-    
+    [Parameter (ParameterSetName = 'psCreateJob', Mandatory = $false)]   
+    [Parameter (ParameterSetName = 'psRemoveJob', Mandatory = $false)]   
+    [Switch] $ExecuteCommand,
+
+
+        
     [Parameter (Mandatory = $false)]
     [Switch] $DropIfExists,
 
     [Parameter (Mandatory = $false)]
     [String] $OutputDriveLetter = "R",
-
-
+    
     [Parameter (Mandatory = $false)]
     [Switch] $ViewCommand,
 
@@ -181,9 +202,8 @@ param(
     [Parameter (ParameterSetName = 'psGetJobConfig', Mandatory = $true)] [Switch] $GetJobConfig,
 
     [Parameter (ParameterSetName = 'psCreateJob', Mandatory = $true)]    [Switch] $CreateJob,
-    [Parameter (ParameterSetName = 'psCreateJob', Mandatory = $false)]   [Switch] $ExecuteCommand,
-
-
+    
+    
     [Parameter (ParameterSetName = 'psCreateJob', Mandatory = $false)]  
     [Parameter (ParameterSetName = 'psRemoveJob', Mandatory = $false)]  
     [Switch] $IncludeVersionOnJobName,
@@ -205,9 +225,7 @@ param(
     $CommandOutput
 
 
-    
-
-)
+ )
 
 
 
@@ -284,7 +302,6 @@ function Set-JobSchedule {
 
 }         #Function Set-JobSchedule
 
-
 #-----------------------------------------------------
 function Set-ScheduleConfigFile {
 
@@ -298,7 +315,6 @@ function Set-ScheduleConfigFile {
     Write-Output $JobScheduleConfigFile #$JobScheduleConfigFile
 
 }  #Function Set-JobScheduleConfigFile
-
 
 #-----------------------------------------------------
 function Set-JobConfigFile {
@@ -315,10 +331,6 @@ function Set-JobConfigFile {
 
 }       #Function Set-JobConfigFile
 
-#test
-#This is a test
-
-
 #-----------------------------------------------------
 Function Get-JobConfig {
 
@@ -329,16 +341,26 @@ Function Get-JobConfig {
         [parameter (Mandatory = $true)] [String] $JobConfigVersion
     )
 
+    Write-Verbose "In Function Get-JobConfig"
 
-    $JobConfigFile = "JobConfig" + $JobConfigVersion + ".cfg"
-    $JobScheduleConfigFile = "JobSchedules" + $JobConfigVersion + ".cfg"
+    $JobConfigFile = "JobConfig_" + $JobConfigVersion + ".cfg"
+    $JobScheduleConfigFile = "JobSchedules_" + $JobConfigVersion + ".cfg"
 
+    Write-Verbose "Job Config File = $JobConfigFile"
 
     if ($JobName) {
 
         $Jobs = Import-CSV $JobConfigFile -Delimiter '|' | ? JobName -like $JobName
     
         $Schedule = Import-CSV $JobScheduleConfigFile -Delimiter '|' | Where-Object ScheduleID -eq $Jobs.Scheduleid
+
+        Write-Host "In $JobConfigFile"
+        
+        $Jobs
+
+        Write-Host "In $JobScheduleConfigFile`n"
+
+        $Schedule
     
     }
     else {
@@ -349,7 +371,6 @@ Function Get-JobConfig {
 
 
 }           #Function Get-JobConfig
-
 
 #-----------------------------------------------------
 Function Get-JobInfo {
@@ -365,8 +386,18 @@ Function Get-JobInfo {
     $WhereClause = $null
 
     if ($JobName) {
+
         $WhereClause = "AND jobs.name = '" + $JobName + "'"
     }
+
+
+
+    if ($Jobname -eq "All" ) {
+
+        $WhereClause = "AND 1=1"
+
+    }
+
 
     $QryFile = "QryJobInfo.sql"
     $QryFileTmp = "QryJobInfo_tmp.sql"
@@ -374,11 +405,8 @@ Function Get-JobInfo {
 
     #Let's invoke an external SQL script, but first update the ps_WHERE_CLAUSE in the SQL
 
-    #Write-Verbose "Get-Content $QryFile | ForEach-Object {$_ -replace "ps_WHERE_CLAUSE", $WhereClause} | Set-Content $QryFileTmp"
-
     Get-Content $QryFile | ForEach-Object {$_ -replace "ps_WHERE_CLAUSE", $WhereClause} | Set-Content $QryFileTmp
-
-
+    
     if ($ShowDetail) {
     
         Invoke-DbaSqlCmd -SqlInstance $Instance -File $QryFileTmp     
@@ -397,9 +425,14 @@ Function Get-JobInfo {
 
 }             #Function Get-JobInfo
 
-
 #-----------------------------------------------------
 Function Get-ScheduleInfo {
+
+<#
+.Description
+Get the schedule info for the specified job
+
+#>
 
     param (
         [parameter (Mandatory = $true)] [String] $Instance,
@@ -408,22 +441,31 @@ Function Get-ScheduleInfo {
     )
 
 
+    Write-Verbose "Inside Get-ScheduleInfo"
+
     $WhereClause = $null
 
-    if ($JobName) {
+    if ($JobName -and $JobName -ne "All" ) {
         $WhereClause = "AND name = '" + $JobName + "'"
     }
+    
+    If ($JobName -eq "All") {
+
+        $WhereClause = "AND 1=1"
+
+    }
+    
+    Write-Verbose "WhereClause = $WhereClause"
 
     $QryFile = "QryScheduleInfo.sql"
     $QryFileTmp = "QryScheduleInfo_tmp.sql"
-
-
+    
     #Let's invoke an external SQL script, but first update the ps_WHERE_CLAUSE in the SQL
 
     Get-Content $QryFile | ForEach-Object {$_ -replace "ps_WHERE_CLAUSE", $WhereClause} | Set-Content $QryFileTmp
 
     if ($ShowDetail) {
-    
+            
         Invoke-DbaSqlCmd -SqlInstance $Instance -File $QryFileTmp   | format-table  
 
     }
@@ -436,7 +478,6 @@ Function Get-ScheduleInfo {
 
 
 }        #Function Get-ScheduleInfo
-
 
 #-----------------------------------------------------
 Function Remove-Job {
@@ -491,7 +532,7 @@ Function Remove-Job {
     
 }              #Function Remove-Job
 
-
+#-----------------------------------------------------
 Function Out-Command {
 
     param (
@@ -499,7 +540,7 @@ Function Out-Command {
         [Parameter(Mandatory = $true)] $Command,
         [Parameter(Mandatory = $true)] $CommandOutput,
         [Parameter(Mandatory = $true)] $CommandComment,
-        [Parameter(Mandatory = $false)] $CommandOUtputFileName
+        [Parameter(Mandatory = $false)] $CommandOutputFileName
     )
 
 
@@ -508,9 +549,9 @@ Function Out-Command {
         "Screen" {write-host $Command }
 
         "File" {
-            write-host "File"
-            $Command | set-content "c:\temp\$CommandOutputFilename"
-
+            $CommandComment |set-content $CommandOutputFileName
+            $Command | add-content $CommandOutputFileName
+        
         }
 
 
@@ -519,8 +560,7 @@ Function Out-Command {
     }
 
 
-} #Function Out-Command
-
+}             #Function Out-Command
 
 #-----------------------------------------------------
 Function New-Job {
@@ -528,13 +568,16 @@ Function New-Job {
     param (
         [Parameter(Mandatory = $true )] [String]$Instance,
         [Parameter(Mandatory = $true )] [String]$JobName,
+        [Parameter(Mandatory = $true )] [String]$JobDescription,
         [Parameter(Mandatory = $true )] [String]$JobConfigFile,
         [Parameter(Mandatory = $true )] [String]$JobConfigVersion,
         [Parameter(Mandatory = $true )] [String]$OutputDriveLetter,
         [Parameter(Mandatory = $false )] [String]$ps_Enabled,
         [Parameter(Mandatory = $false )] [String]$ps_NOTIFY_LEVEL_EVENTLOG,
         [Parameter(Mandatory = $false )] [String]$ps_NOTIFY_EMAIL_OPERATOR_NAME,
-        [Parameter(Mandatory = $false )] [String]$AddVersionToJobName
+        [Parameter(Mandatory = $false )] [String]$AddVersionToJobName,
+        [Parameter(Mandatory = $false )] [String]$ExecuteCommand
+
     )
 
 
@@ -585,31 +628,33 @@ Function New-Job {
     #$CurrentJobDescription="'" + "Job Version  : " + $JobConfigVersion.toupper() + "Job Type     : " + $CurrentJobType + "Job Function : " + $CurrentJobDescription + "'"
 
     #Add single quotes to description
-    $CurrentJobDescription = "'" + $CurrentJobDescription + "'"
+    $JobDescription = "'" + $JobDescription + "'"
 
+                
+    #Let's build the Job DDL script file
     
-            
-    #Let's build the Job DDL
+    $CommandComment = "-- Create VMDBA Agent Job $CurrentJobName"
+    
+    $CommandComment | Add-Content $
+
     $SQLCmd = "EXEC msdb.dbo.sp_add_job @job_name=N'${CurrentJobName}', @enabled=$ps_Enabled,@notify_level_eventlog=$ps_NOTIFY_LEVEL_EVENTLOG, @notify_level_email=2,@description=${CurrentJobDescription},@category_name=N'VMDBA', @owner_login_name=N'sa', @notify_email_operator_name='${ps_NOTIFY_EMAIL_OPERATOR_NAME}'"
     write-Verbose $SQLCmd
 
-
-    $CommandComment = "Comment!"
-
-    # Send the command to screen, file or both
-    Out-Command -command $SQLCmd -CommandComment $CommandComment -CommandOutput $CommandOutput -CommandOUtputFileName "CreateJob_${Instance}.sql"
-
-    exit
-
-        
+                
     If ($ExecuteCommand) {
         invoke-sqlcmd2 -ServerInstance $Instance -Database msdb -query $SQLCmd
     }
 
+    If 
 
     #Build the job Step
     $JobStepDDL = "EXEC msdb.dbo.sp_add_jobstep @job_name='${CurrentJobName}', @step_name='${CurrentJobName}', @step_id=1, @subsystem='${CurrentJobStep1SubSystem}',@command='${CurrentJobStep1Command}',@output_file_name='${ps_OUTPUT_FILE_NAME}'"
     write-Verbose $JobStepDDL
+
+
+    Out-Command -command $SQLCmd -CommandComment $CommandComment -CommandOutput $CommandOutput -CommandOUtputFileName "CreateJob_${Instance}.sql"
+
+
 
     if ($ExecuteCommand) {
         invoke-sqlcmd2 -ServerInstance $Instance -Database msdb -query $JobStepDDL
@@ -623,10 +668,9 @@ Function New-Job {
 
 
 
-} #Function New-Job
+}                 #Function New-Job
 
-
-
+#-----------------------------------------------------
 Function Set-Category-VMDBA {
 
     param (
@@ -655,15 +699,12 @@ Function Set-Category-VMDBA {
 }      #Function Set-Category-VMDBA
 
 
-
-
-
 #-------------------------------------------------------- MAIN -------------------------------------------------------------#
 
 
 # Change to the working directory
-$RootDir = "D:\SQLScripts\Installation\DBA_Tools_Setup\Jobs"
-cd $RootDir
+#$RootDir = "D:\SQLScripts\Installation\DBA_Tools_Setup\Jobs"
+#cd $RootDir
 
 
 if (!($env:PSModulePath | select-string "vmmc" )) {
@@ -712,6 +753,7 @@ If ($GetScheduleInfo) {
 
 #Show the contents of a job config file
 If ($GetJobConfig) {
+    Write-Verbose "-GetJobConfig"
     Get-JobConfig $JobName $JobConfigVersion 
     exit
 }
@@ -723,7 +765,6 @@ if ($RemoveJob -and $AllVMDBAJobs) {
     Remove-Job -Instance $Instance -JobName All -AllVMDBAJobs
     exit
 }
-
 
 
 #Get the name of the config file, based upon the version
@@ -783,6 +824,7 @@ If ($JobName -eq "All") {
 
     
     
+#Now were are going to loop through all jobs and perform whatever task was specfied
 
 Foreach ($Job in $Jobs) {
 
@@ -826,7 +868,17 @@ Foreach ($Job in $Jobs) {
 
         Write-Verbose "-CreateJob"
         Set-Category-VMDBA $Instance
-        New-Job -Instance $Instance -JobName $CurrentJobName -JobConfigFile $JobConfigFile -JobConfigVersion $JobConfigVersion -OutputDriveLetter $OutputDriveLetter -ps_NOTIFY_LEVEL_EVENTLOG $ps_NOTIFY_LEVEL_EVENTLOG -ps_Enabled $ps_Enabled -ps_NOTIFY_EMAIL_OPERATOR_NAME $ps_NOTIFY_EMAIL_OPERATOR_NAME
+        New-Job 
+            -Instance $Instance 
+            -JobName $CurrentJobName 
+            -JobDescription $CurrentJobDescripton
+            -JobConfigFile $JobConfigFile 
+            -JobConfigVersion $JobConfigVersion 
+            -OutputDriveLetter $OutputDriveLetter 
+            -ps_NOTIFY_LEVEL_EVENTLOG $ps_NOTIFY_LEVEL_EVENTLOG 
+            -ps_Enabled $ps_Enabled 
+            -ps_NOTIFY_EMAIL_OPERATOR_NAME $ps_NOTIFY_EMAIL_OPERATOR_NAME 
+            -ExecuteCommand $ExecuteCommand
     }
 
 
