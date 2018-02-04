@@ -698,6 +698,73 @@ Function Set-Category-VMDBA {
 
 }      #Function Set-Category-VMDBA
 
+#-----------------------------------------------------
+Function Get-JobList {
+
+
+    param (
+
+    [Parameter (Mandatory=$true)] $JobName
+
+    )
+
+
+    # Get the list of jobs
+    If ($JobName -ne "All") {
+
+        $Jobs = Import-CSV $JobConfigFile -Delimiter '|' | ? JobName -like $JobName
+    }
+
+    
+
+    If ($JobName -eq "All") {
+
+        $Jobs = Import-CSV $JobConfigFile -Delimiter '|' 
+    }
+
+
+    #Now were are going to loop through all jobs and perform whatever task was specfied
+
+    Foreach ($Job in $Jobs) {
+
+        #JobName,JobType,Description,Step1Subsystem,Step1Command,ScheduleID
+
+        # Process each job as listed in manifest
+        $CurrentJobName = ($Job.JobName | out-string -Stream).trim()
+        $CurrentJobType = ($Job.JobType | out-string -Stream).trim()
+        $CurrentJobDescription = ($Job.Description | out-string -Stream).trim()
+        $CurrentJobStep1Subsystem = ($Job.Step1Subsystem | out-string -Stream).trim()
+        $CurrentJobStep1Command = ($Job.Step1Command | out-string -Stream).trim()
+        $CurrentJobSchedule = ($Job.ScheduleID | out-string -Stream).trim()
+
+        Write-Verbose "Current Job Name = $CurrentJobName"
+        Write-Verbose "Current Job Type = $CurrentJobType"
+
+        Write-Verbose "Current Job Description = $CurrentJobDescription"
+        Write-Verbose "Current Job Step 1 Subsystem = $CurrentJobStep1Subsystem"
+        Write-Verbose "Current Job Step 1 Command = $CurrentJobStep1Command"
+        Write-Verbose "Current Job Schedule = $CurrentJobSchedule"
+
+    
+    
+        if (($JobName) -and ($Jobname -ne "All")) {
+            #Was a job name specified? If so, skip all other jobs.
+
+            if ($CurrentJobName -ne $JobName) {
+                Write-Output "Current Job `"$CurrentJobName`" does not match specified job name `"$JobName`""
+                Continue 
+            }
+        }
+    
+
+        
+
+    }# End Foreach
+
+    
+} # Function Get-JobList
+
+
 
 #-------------------------------------------------------- MAIN -------------------------------------------------------------#
 
@@ -767,6 +834,20 @@ if ($RemoveJob -and $AllVMDBAJobs) {
 }
 
 
+
+#At this point, the only permissible actions are to create a job or remove one or more jobs
+#For those actions we need a specified configfile
+
+#Do we have any action to take
+
+if (!($CreateJob) -and (!($RemoveJob))) {
+    
+    Write-Host "No action specified"
+    exit
+}
+
+
+
 #Get the name of the config file, based upon the version
 $JobConfigFile = Set-JobConfigFile -JobConfigVersion $JobConfigVersion
 
@@ -780,119 +861,22 @@ if (!(Test-Path $JobConfigFile)) {
 }
 
 
-#Do we have any action to take
-
-if (!($CreateJob) -and (!($RemoveJob))) {
-    
-    Write-Host "No action specified"
-    exit
-}
 
 
 #Let's be optimistic
 $Process = $true
 
-#Now let's loop through each job specified
-
-
 #The job does not appear in the config file
-if (!(sls $JobName $JobConfigFile)) {$Process = $false}
+if (!(sls $JobName $JobConfigFile)) {
 
-
-#We want to create all jobs listed in the config file
-If ($JobName -eq "All") {$Process = $true}
-
-
-If (!($Process)) {
-    write-output "Job $JobName not found in $JobConfigFile"
+    Write-Host "The job $JobName is not listed in the config file $JobConfigFile"
     exit
+    
 }
 
 
-# Get the list of jobs
-If ($JobName -ne "All") {
-
-    $Jobs = Import-CSV $JobConfigFile -Delimiter '|' | ? JobName -like $JobName
-}
-
-    
-
-If ($JobName -eq "All") {
-
-    $Jobs = Import-CSV $JobConfigFile -Delimiter '|' 
-}
-
     
     
-#Now were are going to loop through all jobs and perform whatever task was specfied
-
-Foreach ($Job in $Jobs) {
-
-    #JobName,JobType,Description,Step1Subsystem,Step1Command,ScheduleID
-
-    # Process each job as listed in manifest
-    $CurrentJobName = ($Job.JobName | out-string -Stream).trim()
-    $CurrentJobType = ($Job.JobType | out-string -Stream).trim()
-    $CurrentJobDescription = ($Job.Description | out-string -Stream).trim()
-    $CurrentJobStep1Subsystem = ($Job.Step1Subsystem | out-string -Stream).trim()
-    $CurrentJobStep1Command = ($Job.Step1Command | out-string -Stream).trim()
-    $CurrentJobSchedule = ($Job.ScheduleID | out-string -Stream).trim()
-
-    Write-Verbose "Current Job Name = $CurrentJobName"
-    Write-Verbose "Current Job Type = $CurrentJobType"
-
-    Write-Verbose "Current Job Description = $CurrentJobDescription"
-    Write-Verbose "Current Job Step 1 Subsystem = $CurrentJobStep1Subsystem"
-    Write-Verbose "Current Job Step 1 Command = $CurrentJobStep1Command"
-    Write-Verbose "Current Job Schedule = $CurrentJobSchedule"
-
-    
-    
-    if (($JobName) -and ($Jobname -ne "All")) {
-        #Was a job name specified? If so, skip all other jobs.
-
-        if ($CurrentJobName -ne $JobName) {
-            Write-Output "Current Job `"$CurrentJobName`" does not match specified job name `"$JobName`""
-            Continue 
-        }
-    }
-    
-
-    #Let's add a suffix to the job name
-    If ($IncludeVersionOnJobName) {
-        $CurrentJobName = $CurrentJobName + " - Version:" + $JobConfigVersion.toupper()
-    }
-
-    #Create a new job
-    if ($CreateJob) {
-
-        Write-Verbose "-CreateJob"
-        Set-Category-VMDBA $Instance
-        New-Job 
-            -Instance $Instance 
-            -JobName $CurrentJobName 
-            -JobDescription $CurrentJobDescripton
-            -JobConfigFile $JobConfigFile 
-            -JobConfigVersion $JobConfigVersion 
-            -OutputDriveLetter $OutputDriveLetter 
-            -ps_NOTIFY_LEVEL_EVENTLOG $ps_NOTIFY_LEVEL_EVENTLOG 
-            -ps_Enabled $ps_Enabled 
-            -ps_NOTIFY_EMAIL_OPERATOR_NAME $ps_NOTIFY_EMAIL_OPERATOR_NAME 
-            -ExecuteCommand $ExecuteCommand
-    }
-
-
-    if ($RemoveJob) {
-        Write-Verbose "-RemoveJob"
-        
-        Remove-Job -Instance $Instance -JobName $CurrentJobName -AllVMDBAJobs
-        
-    }
-
-
-
-}# End Foreach
-
 
 
 <#
