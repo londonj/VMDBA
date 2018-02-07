@@ -1,6 +1,8 @@
 --Get Job Info
 
-SELECT	 [JobName] = [jobs].[name]
+SELECT	 
+		@@SERVERNAME as Instance
+		,[JobName] = [jobs].[name]
 		,[Category] = [categories].[name]
 		,[Owner] = SUSER_SNAME([jobs].[owner_sid])
 		,[Enabled] = CASE [jobs].[enabled] WHEN 1 THEN 'Yes' ELSE 'No' END

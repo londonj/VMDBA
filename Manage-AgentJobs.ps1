@@ -390,22 +390,20 @@ Function Get-JobInfo {
         $WhereClause = "AND jobs.name = '" + $JobName + "'"
     }
 
-
-
     if ($Jobname -eq "All" ) {
 
         $WhereClause = "AND 1=1"
 
     }
 
-
     $QryFile = "QryJobInfo.sql"
-    $QryFileTmp = "QryJobInfo_tmp.sql"
-
+    $QryFileTmp = "c:\temp\QryJobInfo_tmp.sql"
 
     #Let's invoke an external SQL script, but first update the ps_WHERE_CLAUSE in the SQL
 
-    Get-Content $QryFile | ForEach-Object {$_ -replace "ps_WHERE_CLAUSE", $WhereClause} | Set-Content $QryFileTmp
+
+    
+    Get-Content $QryFile | ForEach-Object {$_ -replace "ps_WHERE_CLAUSE", $WhereClause }  | Set-Content $QryFileTmp
     
     if ($ShowDetail) {
     
@@ -414,7 +412,7 @@ Function Get-JobInfo {
     }
     else {
         
-        Write-Verbose "Invoke-DbaSqlCmd -SqlInstance $Instance -File $QryFileTmp | select-object JobName,Enabled,ScheduleName,EventLogWrite,EmailNotify,EmailOperator | format-table"
+        Write-Verbose "Invoke-DbaSqlCmd -SqlInstance $Instance -File $QryFileTmp | select-object Instance,JobName,Enabled,ScheduleName,EventLogWrite,EmailNotify,EmailOperator | format-table"
 
         Invoke-DbaSqlCmd -SqlInstance $Instance -File $QryFileTmp | select-object JobName, Enabled, ScheduleName, EventLogWrite, EmailNotify, EmailOperator | format-table
 
@@ -645,8 +643,7 @@ Function New-Job {
         invoke-sqlcmd2 -ServerInstance $Instance -Database msdb -query $SQLCmd
     }
 
-    If 
-
+    
     #Build the job Step
     $JobStepDDL = "EXEC msdb.dbo.sp_add_jobstep @job_name='${CurrentJobName}', @step_name='${CurrentJobName}', @step_id=1, @subsystem='${CurrentJobStep1SubSystem}',@command='${CurrentJobStep1Command}',@output_file_name='${ps_OUTPUT_FILE_NAME}'"
     write-Verbose $JobStepDDL
