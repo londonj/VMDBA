@@ -699,15 +699,16 @@ Function Set-Category-VMDBA {
 Function Get-JobList {
 
 
+
+  [CmdletBinding()]
+
     param (
-
-    [Parameter (Mandatory=$true)] $JobName
-
+    [Parameter (Mandatory=$true)] $JobName,
+    [Parameter (Mandatory=$true)] $JobConfigFile
     )
 
 
-    # Get the list of jobs
-    If ($JobName -ne "All") {
+     If ($JobName -ne "All") {
 
         $Jobs = Import-CSV $JobConfigFile -Delimiter '|' | ? JobName -like $JobName
     }
@@ -720,12 +721,32 @@ Function Get-JobList {
     }
 
 
-    #Now were are going to loop through all jobs and perform whatever task was specfied
+    $JobCollection = New-Object System.Collections.ArrayList
 
     Foreach ($Job in $Jobs) {
+        
+        $JobObj=new-object system.object
+        
+        $JobObj | Add-Member -MemberType NoteProperty -Name "CurrentJobName"        -Value $Job.Jobname
+        $JobObj | Add-Member -MemberType NoteProperty -Name "CurrentJobDescription" -Value $Job.Description
+        $JobObj | Add-Member -MemberType NoteProperty -Name "Step1Subsystem"        -Value $Job.Step1Subsystem
+        $JobObj | Add-Member -MemberType NoteProperty -Name "Step1Command"          -Value $Job.Step1Command
+        $JobObj | Add-Member -MemberType NoteProperty -Name "ScheduleID"            -Value $Job.ScheduleID
 
-        #JobName,JobType,Description,Step1Subsystem,Step1Command,ScheduleID
+        $JobCollection.Add($JobObj) | out-Null
 
+    } #End Foreach
+
+
+    return $JobCollection
+
+    
+    
+        
+
+
+
+<#
         # Process each job as listed in manifest
         $CurrentJobName = ($Job.JobName | out-string -Stream).trim()
         $CurrentJobType = ($Job.JobType | out-string -Stream).trim()
@@ -742,22 +763,9 @@ Function Get-JobList {
         Write-Verbose "Current Job Step 1 Command = $CurrentJobStep1Command"
         Write-Verbose "Current Job Schedule = $CurrentJobSchedule"
 
-    
-    
-        if (($JobName) -and ($Jobname -ne "All")) {
-            #Was a job name specified? If so, skip all other jobs.
-
-            if ($CurrentJobName -ne $JobName) {
-                Write-Output "Current Job `"$CurrentJobName`" does not match specified job name `"$JobName`""
-                Continue 
-            }
-        }
-    
-
-        
-
-    }# End Foreach
-
+  
+  #>
+  
     
 } # Function Get-JobList
 
@@ -882,6 +890,7 @@ if (!(sls $JobName $JobConfigFile)) {
     }
 
     #>
+
 
 
 
