@@ -172,14 +172,12 @@ param(
     [Parameter (ParameterSetName = 'psRemoveJob', Mandatory = $false)]   
     [Switch] $ExecuteCommand,
 
-
-        
+    [Paramter (ParameterSetName = 'psCreateJob', Mandatory = $false)]
+    [Switch] $AddVersionToJobName = $false,
+            
     [Parameter (Mandatory = $false)]
     [Switch] $DropIfExists,
 
-    [Parameter (Mandatory = $false)]
-    [String] $OutputDriveLetter = "R",
-    
     [Parameter (Mandatory = $false)]
     [Switch] $ViewCommand,
 
@@ -325,6 +323,11 @@ function Set-JobConfigFile {
 
     $JobConfigFile = "JobConfig_" + $JobConfigVersion.toupper() + ".cfg"
         
+    if (!(Test-Path $JobConfigFile)) {
+        Write-Host "File $JobConfigFile does NOT exist."
+        exit
+    }
+    
     Write-Verbose "JobConfigFile = $JobConfigFile"
 
     Write-Output $JobConfigFile #$JobScheduleConfigFile
@@ -560,16 +563,37 @@ Function Out-Command {
 
 }             #Function Out-Command
 
+
+Function Get-LocalBackupDrive {
+
+    param (
+        [Parameter (Mandatory = $true)] [String] $Instance
+
+    )
+
+    #The job does not appear in the config file
+    if (!(sls $Instance LocalBAckupDrive.cfg)) {
+        Write-Host "The instance $Instance was not found in LocalBackupDrive.cfg"
+        exit
+    
+    }
+
+    $LocalBackupDrive=import-csv LocalBackupDrive.cfg | sls $Instance
+    
+    write-output $LocalBackupDrive
+
+} #Function Get-LocalBackupDrive
+
+
+
 #-----------------------------------------------------
 Function New-Job {
 
     param (
         [Parameter(Mandatory = $true )] [String]$Instance,
         [Parameter(Mandatory = $true )] [String]$JobName,
-        [Parameter(Mandatory = $true )] [String]$JobDescription,
         [Parameter(Mandatory = $true )] [String]$JobConfigFile,
         [Parameter(Mandatory = $true )] [String]$JobConfigVersion,
-        [Parameter(Mandatory = $true )] [String]$OutputDriveLetter,
         [Parameter(Mandatory = $false )] [String]$ps_Enabled,
         [Parameter(Mandatory = $false )] [String]$ps_NOTIFY_LEVEL_EVENTLOG,
         [Parameter(Mandatory = $false )] [String]$ps_NOTIFY_EMAIL_OPERATOR_NAME,
@@ -589,6 +613,8 @@ Function New-Job {
     #Build the job output filename
       
     #1. Set the directory of where these instance-specific job output files will go
+    $OutputDriveLetter=Get-LocalBackupDrive $Instance
+
     $OutputFileDir = $OutputDriveLetter + ':' + "\SQLJobLogs\" + $Instance
         
     #2. Set the file placeholder substitution variable
@@ -633,7 +659,7 @@ Function New-Job {
     
     $CommandComment = "-- Create VMDBA Agent Job $CurrentJobName"
     
-    $CommandComment | Add-Content $
+    #$CommandComment | Add-Content $
 
     $SQLCmd = "EXEC msdb.dbo.sp_add_job @job_name=N'${CurrentJobName}', @enabled=$ps_Enabled,@notify_level_eventlog=$ps_NOTIFY_LEVEL_EVENTLOG, @notify_level_email=2,@description=${CurrentJobDescription},@category_name=N'VMDBA', @owner_login_name=N'sa', @notify_email_operator_name='${ps_NOTIFY_EMAIL_OPERATOR_NAME}'"
     write-Verbose $SQLCmd
@@ -666,6 +692,7 @@ Function New-Job {
 
 
 }                 #Function New-Job
+
 
 #-----------------------------------------------------
 Function Set-Category-VMDBA {
@@ -823,6 +850,11 @@ If ($GetScheduleInfo) {
 }
 
 
+#Get the name of the config file, based upon the version
+$JobConfigFile = Set-JobConfigFile -JobConfigVersion $JobConfigVersion
+
+
+
 #Show the contents of a job config file
 If ($GetJobConfig) {
     Write-Verbose "-GetJobConfig"
@@ -852,25 +884,6 @@ if (!($CreateJob) -and (!($RemoveJob))) {
 }
 
 
-
-#Get the name of the config file, based upon the version
-$JobConfigFile = Set-JobConfigFile -JobConfigVersion $JobConfigVersion
-
-
-#Let's first see if the job config file exists
-if (!(Test-Path $JobConfigFile)) {
-
-    Write-Host "`nThe job config file $JobConfigFile does not exist."
-    exit
-
-}
-
-
-
-
-#Let's be optimistic
-$Process = $true
-
 #The job does not appear in the config file
 if (!(sls $JobName $JobConfigFile)) {
 
@@ -879,6 +892,19 @@ if (!(sls $JobName $JobConfigFile)) {
     
 }
 
+
+if ($CreateJob) {
+
+    New-Job -JobName $JobName
+            -Instance $Instance 
+            -JobConfigVersion $JobConfigVersion 
+            -ps_Enabled $ps_Enabled 
+            -ps_NOTIFY_LEVEL_EVENTLOG $ps_NOTIFY_LEVEL_EVENTLOG 
+            -ps_NOTIFY_EMAIL_OPERATOR_NAME $ps_NOTIFY_EMAIL_OPERATOR_NAME 
+            -AddVersionToJobName $AddVersionToJobName
+            -ExecuteCommand $ExecuteCommand
+            
+}
 
     
     
